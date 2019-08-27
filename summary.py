@@ -13,9 +13,9 @@ class Controller:
        numMonths: number of months
     """ 
     def __init__(self):
-        months = []
-        size  = 0
-        numMonths = 0
+        self.months = []
+        self.size  = 0
+        self.numMonths = 0
 
     def printPurchase(self, aux):
         print("{}, {}, {}".format(time.strftime("%m/%d/%Y", aux[0]),
@@ -56,6 +56,7 @@ class Controller:
         except:
             print("File not found")
 
+    
     #searches for the index of a date
     # or if not found the next index
     def binarySearch(self, element):
@@ -65,6 +66,7 @@ class Controller:
 
         low = 0
         high = self.numMonths - 1
+        #binary search to find the index of the month
         while(low < high):
             middle = int((high + low)/2)
             current = self.months[middle][0][0]
@@ -79,14 +81,19 @@ class Controller:
 
         low = 0
         high = len(self.months[mIndex]) -1
+        #binary search to find the first purchase of the day
         while(low < high):
             middle = int((high + low)/2)
-            current = self.months[mIndex][middle]
+            current = self.months[mIndex][middle][0]
             if(current < element):
                 low = middle + 1
             elif(current > element):
                 high = middle - 1
             else:
+                #iterates up to the first element of the day
+                while(self.months[mIndex][middle - 1][0] 
+                    == self.months[mIndex][middle][0]):
+                    middle -= 1
                 pIndex = middle
                 break
             pIndex = middle
@@ -103,14 +110,14 @@ class Controller:
         while(aux[index][0] <= end):
             self.printPurchase(aux[index])
             index += 1
-
+"""
     def printLastMonth(self):
         aux = self.months
         index  = self.binarySearch(time.struct_time(tm_mon = aux[self.size-1][0][1]))
 
         for i in range(index, self.size-1):
             self.printPurchase(aux[i])
-        
+   """     
 
 
 def main():
@@ -119,12 +126,12 @@ def main():
     cont = Controller()
     cont.readFile(fileName)
 
-    #print(cont.months)
+    print(cont.months)
 
     #cont.printRange(time.strptime("03/03/2019", "%m/%d/%Y"),
     #               time.strptime("05/03/2019", "%m/%d/%Y"))
 
-    cont.printLastMonth()    
+    #cont.printLastMonth()    
 
     
 
