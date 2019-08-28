@@ -2,178 +2,204 @@ import csv;
 import time
 from re import sub
 from decimal import Decimal
+from controller import Controller
+import matplotlib.pyplot as plt
 import os
 
-class Controller:
-
-    """
-    initializes:
-       months: the a list of lists of all months with its purchases
-       size: the total number of purchases
-       numMonths: number of months
-    """ 
-    def __init__(self):
-        self.months = []
-        self.pricePerMonth = []
-        self.size  = 0
-        self.numMonths = 0
-        self.totalPrice = Decimal(0)
-
-    def printPurchase(self, aux):
-        print("{}, {}, {}".format(time.strftime("%m/%d/%Y", aux[0]),
-                              aux[1], str(aux[2])))
-
-    def calculatePricePerMonth(self):
-        for month in self.months:
-            aux = Decimal(0)
-            for p in month:
-                aux +=p[2]
-            self.pricePerMonth.append(aux)
-                
-
-    #reads the the file of the given fileName
-    def readFile(self, fileName):
-        #list to read all purchases into
-        auxList = []
-       
+# receives a input and transforms it into a struc_time
+# extra: used to fill the date if necessary
+# returns the struct_time
+def getTime(str, extra=""):
+    t = ""
+    #while the format is invalid and a exception is raised loop
+    while True:
+        t = input(str)
         try:
-            
-            with open(fileName) as file:
-                reader = csv.reader(file)
-                for row in reader:
-                    #saves the date as a struct_time
-                    date = time.strptime(row[0], "%m/%d/%Y")
-                    #saves the price as a decimal
-                    value = Decimal(sub(r'[^\d\-.]', '', row[2]))
-                    #increase the total price spent
-                    self.totalPrice += value
-                    #appends it in the temp list
-                    auxList.append((date, row[1], value))
-               
-                #sorts the list based on the daate
-                auxList.sort(key = lambda element: element[0])
-                #sets the size of the total number of purchases
-                self.size = len(auxList)
-                
-                #gets the number of the first month
-                month = auxList[0][0].tm_mon
-                begin = 0
-                #add all purchases into the months list 
-                # with each months having its own index
-                for i in range(0,len(auxList)):
-                    if(auxList[i][0].tm_mon != month):
-                        self.months.append(auxList[begin: i])
-                        month = auxList[i][0].tm_mon
-                        begin = i+1
-                        #print("Month: {}  begin: {}".format(
-                        #    auxList[i][0].tm_mon, begin))
+            t = extra + t
+            t = time.strptime(t, "%d/%m/%Y")
+            return t
+        except:
+            print("format not accepted try again.")
 
-                #set the total number of months
-                self.numMonths = len(self.months)
-                self.calculatePricePerMonth()
+#gets the input of a range of time
+#returns a list with the begin and the end
+def getRange():
+    begin = getTime(
+        "Enter the start of the range in the format (dd/mm/yyyy): ")
+    end = getTime(
+        "Enter the end of the range in the format (dd/mm/yyyy): ")
 
-            return True
-        except FileNotFoundError:
-            print("File not found")
-            return False
+    return [begin, end]
 
-    
-    #searches for the index of a date
-    # or if not found the next index
-    def binarySearch(self, element):
-        mIndex = 0
-        pIndex = 0
+#list's the amount spent on each location
+#with options to print all, a month, a range of time
+def listLocations(cont):
+    #prints the options
+    print("""
 
-        low = 0
-        high = self.numMonths - 1
-        #binary search to find the index of the month
-        while(low <= high):
-            middle = int((high + low)/2)
-            current = self.months[middle][0][0]
-            if(current.tm_mon < element.tm_mon or current.tm_year < element.tm_year):
-                low = middle + 1
-            elif(current.tm_mon > element.tm_mon or current.tm_year > element.tm_year):
-                high = middle - 1
-            else:
-                mIndex = middle
-                break
-            mIndex = middle
-            
-        low = 0
-        high = len(self.months[mIndex]) -1
-        #binary search to find the first purchase of the day
-        while(low <= high):
-            middle = int((high + low)/2)
-            current = self.months[mIndex][middle][0]
-            if(current < element):
-                low = middle + 1
-            elif(current > element):
-                high = middle - 1
-            else:
-                #iterates up to the first element of the day
-                while(self.months[mIndex][middle - 1][0] 
-                    == self.months[mIndex][middle][0]):
-                    middle -= 1
-                pIndex = middle
-                break
-            pIndex = middle + 1
-            
-        
-        return [mIndex,pIndex]
+        1 - list all
+        2 - list range
+        3 - list month
+        4 - return
 
-    def printRange(self, begin, end):
-        aux = self.months
-        #out of range
-        if(aux[0][0][0] > end or aux[self.numMonths-1][len(aux[self.numMonths-1])-1][0] < begin):
-            return
-        
-        temp = self.binarySearch(begin)
-        m = temp[0]
-        d = temp[1]
-        print(" {} {}".format(m,d))
-        while(aux[m][d][0] <= end):
-            self.printPurchase(aux[m][d])
-            if(d + 1 >= len(aux[m])):
-                m += 1
-                d = 0
-            else:
-                d += 1
+    """)
+    command = input("Enter a command: ")
+    #map to keep the locations as keys and the amount as the values
+    map = dict()
+    if(command == "1"):
+        #uses the range from the first date in the list of purchases to the last one
+        map = cont.getLocationAmount(cont.months[0][0][0],
+                                     cont.months[cont.numMonths-1][len(cont.months[cont.numMonths-1])-1][0])
+    elif(command == "2"):
+        #asks fro input of a range of dates
+        range = getRange()
+        #asks for a map using the range gotten previously
+        map = cont.getLocationAmount(range[0], range[1])
+    elif(command == "3"):
+        #asks for input of a month and year
+        start = getTime("input the month in the format: mm/yyyy: ", "1/")
+        #generates a new date on the end of the month of the start date
+        end = time.strptime("{}/{}/{}"
+                            .format(31, ("%02d" % start.tm_mon), start.tm_year), "%d/%m/%Y")
+        map = cont.getLocationAmount(start, end)
+    else:
+        #if it received any other command return to the main menu
+        return
 
-"""
-    def printLastMonth(self):
-        aux = self.months
-        index  = self.binarySearch(time.struct_time(tm_mon = aux[self.size-1][0][1]))
+    #sorts the maps based on the values
+    map = sorted(map.items(), key=lambda e: e[1])
+    print()
+    for e in map:
+        #prints all elements from the map
+        print("{}: {}".format(e[0], e[1]))
+    print()
 
-        for i in range(index, self.size):
-            self.printPurchase(aux[i])
-   """     
+#lists all purchases
+# from the period of: all, a range of dates, a month, or the last month
+def listPurchases(cont):
+    #prints all options
+    print("""
 
+        1 - list all
+        2 - list range
+        3 - list month
+        4 - list last month
+        5 - return
+
+    """)
+    #asks for a input
+    command = input("Enter a command: ")
+
+    if(command == "1"):
+        print()
+        #loops through all purchases and prints them
+        for month in cont.months:
+            for p in month:
+                cont.printPurchase(p)
+        print()
+    elif(command == "2"):
+        range = getRange()
+        print()
+        #prints all purchases between the range included
+        cont.printRange(range[0], range[1])
+        print()
+    elif(command == "3"):
+        #asks for input of a month
+        start = getTime("input the month in the format: mm/yyyy: ", "1/")
+        #generates a new date on the end of the month of the start date
+        end = time.strptime("{}/{}/{}"
+                            .format(31, ("%02d" % start.tm_mon), start.tm_year), "%d/%m/%Y")
+        print()
+        #prints the range
+        cont.printRange(start, end)
+        print()
+    elif(command == "4"):
+        #gets a reference for the last month and prints it
+        month = cont.months[cont.numMonths - 1]
+        print()
+        for p in month:
+            cont.printPurchase(p)
+        print()
+    else:
+        return
+
+#clears the console
+def clearConsole():
+    if os.name == 'nt':
+        os.system('cls')
+    else:
+        os.system('clear')
 
 def main():
-    fileName = "C:/Users/ricksonre/Documents/GitHub/accounting/2019.csv"
-
+    #initializes the class that deal with the data
     cont = Controller()
+    #asks for the input of a file to open
+    fileName = input("Enter the file name: ")
+    #loops until the file is found
     while(not cont.readFile(fileName)):
-        break
-    
-    print(cont.totalPrice)
+        fileName = input("try again: ")
 
-    p = Decimal(0)
-    for pp in cont.pricePerMonth:
-        p+=pp
-    print(p)
-    #for i,month in enumerate(cont.months):
-    #    print(i)
-    #    for p in month:
-    #        cont.printPurchase(p)
+    #main loop
+    while True:
+        #display options
+        print("""
 
-    #cont.printRange(time.strptime("03/01/2019", "%m/%d/%Y"),
-    #           time.strptime("05/03/2019", "%m/%d/%Y"))
+            1 - list purchases
+            2 - list amount spent per location
+            3 - total amount spent
+            4 - list total amount spent per month
+            5 - graph total amount spent per month
+            6 - close
 
-    #cont.printLastMonth()    
+        """)
+        #asks for a inut
+        command = input("Enter a command: ")
+        
+        clearConsole()
+        #quits
+        if(command == "6"):
+            break
+        elif(command == "1"):
+            #goes to a secondary menu
+            listPurchases(cont)
+        elif(command == "2"):
+            #goes to a secondary menu
+            listLocations(cont)
+        elif(command == "3"):
+            #prints the total amount
+            print("Total amount: " + str(cont.totalPrice))
+        elif(command == "4"):
+            #loops through
+            for e in cont.pricePerMonth:
+                t = time.strptime("{}/{}".format(e[0], e[1]), "%m/%Y")
+                print("{}: {}".format(time.strftime("%b, %Y", t), e[2]))
+        elif(command == "5"):
+            #initializes 2 empty lists
+            dates = []
+            values = []
+            # loops throu the lists of prices spent on each month
+            for e in cont.pricePerMonth:
+                #transforms ints int struc_time string
+                t = time.strptime("{}/{}".format(e[0], e[1]), "%m/%Y")
+                #appends the the month into the list
+                dates.append(time.strftime("%b, %Y", t))
+                #appends the amount of the month into 
+                values.append(e[2])
+            #creates a plot with the 2 lists
+            plt.plot(dates,values)
+            plt.grid(color="#9c9996", linestyle="-", linewidth=1)
+            plt.title("Time x Amount Spent")
+            plt.xlabel("time")
+            plt.ylabel("Amount Spent (cad)")
+        
+            plt.show()
+        else:
+            next
 
-    
+        #asks for input before returning to the main options
+        input("press any key to return...")
+        clearConsole()
 
-
+#runs the main method if the file is run
 if __name__ == "__main__":
     main()
